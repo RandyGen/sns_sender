@@ -7,15 +7,11 @@ from dotenv import load_dotenv
 
 load_dotenv(".env")
 
-TYPETALK_URL = os.environ.get("TYPETALK_URL")
-TYPETALK_TOKEN = os.environ.get("TYPETALK_TOKEN")
-SLACK_URL = os.environ.get("SLACK_URL")
-
 MESSAGE_PATH = "message.txt"
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="")
+    parser = argparse.ArgumentParser()
     parser.add_argument(
         "-m",
         "--message",
@@ -35,35 +31,58 @@ def parse_args():
     return args
 
 
-def send_slack(message: str, url: str) -> None:
-    request = requests.post(
-        url,
-        data=json.dumps(
+class AutoSender:
+    SNSs = ["typetalk", "slack"]
+
+    def __init__(self, args, message) -> None:
+        self.message = message
+        self.sns_type = args.sns_type
+        self.typetalk_url = os.environ.get("TYPETALK_URL")
+        self.typetalk_token = os.environ.get("TYPETALK_TOKEN")
+        self.slack_url = os.environ.get("SLACK_URL")
+
+    def send_message(self) -> None:
+        if self.sns_type == "all":
+            self._send_typetalk()
+            self._send_slack()
+        elif self.sns_type == "typetalk":
+            self._send_typetalk()
+        elif self.sns_type == "slack":
+            self._send_slack()
+        else:
+            ValueError("Please choose sns type in 'all', 'typetalk', 'slack'")
+
+    def _send_slack(self) -> None:
+        data = json.dumps(
             {
-                "text": message,
+                "text": self.message,
             }
-        ),
-    )
-    print(f"slack's status code is {request.status_code}.\n")
+        )
+        request = requests.post(
+            self.slack_url,
+            data=data,
+        )
+        self._check_status_code(request)
 
+    def _send_typetalk(self) -> None:
+        data = {"message": self.message}
+        headers = {"X-TYPETALK-TOKEN": self.typetalk_token}
+        request = requests.post(self.typetalk_url, json=data, headers=headers)
+        self._check_status_code(request)
 
-def send_typetalk(message: str, url: str, token: str) -> None:
-    data = {"message": message}
-    headers = {"X-TYPETALK-TOKEN": token}
-    request = requests.post(url, json=data, headers=headers)
-    print(f"typetalk's status code is {request.status_code}.\n")
+    def _check_status_code(self, request) -> None:
+        print(f"{self.sns_type}'s status code is {request.status_code}.")
 
+    def check_message(self) -> None:
+        print(self.message)
 
-def send_message(message: str, sns_type: str) -> None:
-    if sns_type == "all":
-        send_typetalk(message, TYPETALK_URL, TYPETALK_TOKEN)
-        send_slack(message, SLACK_URL)
-    elif sns_type == "typetalk":
-        send_typetalk(message, TYPETALK_URL, TYPETALK_TOKEN)
-    elif sns_type == "slack":
-        send_slack(message, SLACK_URL)
-    else:
-        ValueError("Please choose sns type in 'all', 'typetalk', 'slack'")
+    @classmethod
+    def check_SNSs(cls) -> None:
+        print(f"this autosender can send to {cls.SNSs}.")
+
+    @staticmethod
+    def describe() -> None:
+        print("this is auto sender for me.")
 
 
 def main():
@@ -75,7 +94,8 @@ def main():
             message = f.read()
     else:
         ValueError("No message")
-    send_message(message, args.sns_type)
+    sender = AutoSender(args, message)
+    sender.send_message()
 
 
 if __name__ == "__main__":
