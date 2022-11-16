@@ -50,7 +50,7 @@ class AutoSender:
         elif self.sns_type == "slack":
             self._send_slack()
         else:
-            ValueError("Please choose sns type in 'all', 'typetalk', 'slack'")
+            raise ValueError("Please choose sns type in 'all', 'typetalk', 'slack'")
 
     def _send_slack(self) -> None:
         data = json.dumps(
@@ -93,7 +93,7 @@ def main():
         with open(MESSAGE_PATH, "r") as f:
             message = f.read()
     else:
-        ValueError("No message")
+        raise ValueError("No message")
     sender = AutoSender(args, message)
     sender.send_message()
 
